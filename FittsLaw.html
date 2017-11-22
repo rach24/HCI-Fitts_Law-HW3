@@ -1,0 +1,195 @@
+<html>
+<head>
+	<title>CS 522: HW-3</title>
+	<style>
+		
+		.target {
+			fill: purple;
+		}
+
+		.back {
+			fill: white;
+		}
+
+		.circ {
+			fill: gray;
+		}
+
+	</style>
+	<script>
+		function ProblemGenerator(distance, widths, repeatCount) {
+			var i = 0;
+			var problemCache = [];
+			for (var j = 0; j < distance.length; j++) {
+				for (var k = 0; k < widths.length; k++) {
+					for (var m = 0; m < repeatCount; m++) {
+						var problem = { 
+							amplitude: distance[j], 
+							width    : widths[k] 
+							};
+						problemCache.push(problem);
+					}
+				}
+			}
+
+			this.restart = function() {
+				i = 0;
+			};
+
+			this.next = function() {
+				if (i >= problemCache.length) return null;
+				return problemCache[i++];
+			}
+		}
+
+		var svgElem = null;
+		var sceneWidth = 450;
+		var sceneHeight = 450;
+		var cursorPos = {x:0, y:0};
+		var samplesCollected = 0;
+		var totalSamples = 50;
+		var sessionEnded = false;
+		var samples = [];
+		var problemGen = new random(ProblemGenerator([140, 260, 350], [20, 70], 15));
+		var problem = null;
+		var chosen = 0;
+
+		var targetData = {
+			"startTime" : null,
+			"startCursorPos" : null,
+			"targetCenter" : null,
+			"targetRadius" : null
+		};
+
+		function endSession() {
+			sessionEnded = true;
+			console.log(samples);
+		}
+
+		function updateJSON() {
+			var outputElem = document.getElementById("output");
+			var results = JSON.stringify(samples);
+			outputElem.innerHTML = "<a href=\"data:application/json;charset=utf-8,"+encodeURIComponent(results)+"\" download=\"results.json\">Save Results</a>";
+		}
+
+		function updateNumSamples(val) {
+			var sampElem = document.getElementById("numSamples");
+			sampElem.innerHTML = "Number of Samples: " + val;
+		}
+
+		function targetClicked() {
+			if (sessionEnded) return;
+			t = Date.now() - targetData["startTime"];
+			
+			var sample = {
+				time : t,
+				amplitude : problem.amplitude,
+				width: problem.width 
+			};
+			samples.push(sample);
+			samplesCollected += 1;
+			console.log("Samples number: " + (totalSamples));
+
+			updateNumSamples(samplesCollected);
+			updateJSON();
+
+			genCircles();
+		}
+
+		function restart() {
+			problemGen.restart();
+			samples = [];
+			samplesCollected = 0;
+			updateNumSamples(0);
+			renderStart();
+		}
+
+		function targetMissed() {
+			if (sessionEnded) return;
+			console.log("Oops! Try again");
+		}
+
+		function randomInt(max) {
+			return Math.floor(Math.random() * max);
+		}
+
+		function randomFloat(min, max) {
+			return Math.random() * (max - min) + min;
+		}
+
+		function renderStart() {
+			var ox = sceneWidth / 2;
+			var oy = sceneHeight / 2;
+			var output = "<circle onclick='genCircles()' style='fill:purple' cx='" + ox + "' cy='"+oy+"' r='40'></circle>"
+			output += "<text onclick='genCircles()' x='"+ox+"' y='"+oy+"' dominant-baseline='middle' text-anchor='middle' font-size='12' font-weight='bold' font-family='Arial' fill='wheat'>START TEST</text>";
+			svgElem.innerHTML = output;
+		}
+
+		function genCircles() {
+			console.log("genCircles();")
+			problem = problemGen.next();
+			console.log("Problem:");
+			console.log(problem);
+
+			var output = "";
+			if (problem) {
+				var radius = problem.width / 2;
+				var ringRadius = problem.amplitude / 2;
+				var numCircles = 15;
+				var targetCenter = { x : 0, y : 0 };
+				chosen = (chosen + Math.floor(numCircles / 2)) % numCircles;
+				output += "<rect class='back' onclick='targetMissed()' x='0' y='0' width='640' height='480'></rect>";
+				for (var i = 0; i <= numCircles; i++) {
+					if (i == chosen) continue;
+					if (i == numCircles) i = chosen;
+					var ox = sceneWidth / 2;
+					var oy = sceneHeight / 2;
+					var theta = i * Math.PI * 2 / numCircles;
+					var cx = Math.sin(theta) * ringRadius + ox;
+					var cy = Math.cos(theta) * ringRadius + oy;
+					if (i != chosen % numCircles)
+						output += "<circle class='circ' cx='" + cx + "' cy='" +cy+ "' r='"+radius+"'></circle>"; 
+					else {
+						output += "<circle class='target' onclick='targetClicked()' cx='" + cx + "' cy='" +cy+ "' r='"+radius+"'></circle>"; 
+						targetCenter.x = cx;
+						targetCenter.y = cy;
+						break;
+					}
+				}
+			}
+
+			targetData["startTime"] = Date.now();
+			svgElem.innerHTML = output;
+		}
+
+		function hookEvents() {
+			svgElem = document.getElementById("scene");
+			svgElem.addEventListener("mousemove", function (evt) {
+				cursorPos.x = evt.clientX;
+				cursorPos.y = evt.clientY;
+			});
+		}
+
+		function main() {
+			hookEvents();
+			renderStart();
+			console.log("Circles generated");
+		}
+	</script>
+</head>
+<body onload="main()">
+	<h1 style="text-align: center; text-decoration: underline;">CS 522 - HCI</h1>
+	<h2 style="text-align: center;">HW 3: Fitts's Law Replication</h2>
+	<br>
+	<center>
+		<svg id="scene" width="450" height="450" style="pointer-events: all;">
+		</svg>
+		<br />
+		<span id="numSamples">Number of Samples: 0</span>
+		&nbsp;
+		<button onclick='restart()'>Restart</button>
+		<br />
+		<span id="output"></span>
+	</center>
+</body>
+</html>
